@@ -39,7 +39,7 @@ Add-Type -path $path
 # [Reflection.Assembly]::LoadFile(".\bpm_xsd.dll")
 
 
-function ToCustomer($customer)
+function ToCollaboration($customer)
 {
 	$participant = New-Object -TypeName bpm.tParticipant -Property (@{
 		'id'='Participant_customer_'+$customer.ClientCode;
@@ -52,6 +52,34 @@ function ToCustomer($customer)
 		'participant'= @($participant)
 	})
 	return $collab
+}
+
+function ToProcess($customer)
+{
+	$tas = $customer.TradingAccounts | 
+		% { $_.TradingAccountId } |
+		% { $p1=@()} {$p1+= "Task_{0}" -f $_ } {$p1 -join ',' }
+	$flowNodes = @(
+		'Task_'+$customer.ClientAccountId,
+		'Task_'+$customer.ContractId#,
+		#$tas
+	)
+
+	$laneset = New-Object -TypeName bpm.tLaneSet -Property (@{
+		'id'='LaneSet_'+$customer.ClientCode;
+		'lane'= @(
+			New-Object bpm.tLane -Property (@{
+				'id'='Lane_'+$customer.ClientCode;
+				'flowNodeRef'= $flowNodes; })
+			)
+	})
+
+	$process = New-Object -TypeName bpm.tProcess -Property (@{
+		'id'='Process_'+$customer.ClientCode;
+		'isExecutable'=$false;
+		'laneSet'=@($laneset);
+	})
+	return $process
 }
 
 function Serialize($definitions)
@@ -85,9 +113,12 @@ function Serialize($definitions)
 }
 
 $xml = New-Object -TypeName bpm.tDefinitions -Property (@{
-	'Items'= @(
-		ToCustomer($customer)
+	'Items'= @(		
+		(ToCollaboration($customer)),
+		(ToProcess($customer))
 	)
 })
+
+$xml.Items
 
 Write-Output (Serialize $xml)
