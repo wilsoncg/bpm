@@ -1,3 +1,10 @@
+
+Enum LegalPartyType
+{
+	Contract = 1
+	Person = 2
+}
+
 $customer = [PSCustomObject]@{
 	ClientAccountId = 1
 	ClientCode = 'clientCode'
@@ -13,16 +20,20 @@ $customer = [PSCustomObject]@{
 			TradingAccountCode = 'tac02'
 		}
 	)
-	InRelations = @(
+	Relations = @(
 		@{
-			ContractId = 10
 			RelationshipType = 'AccountHolder'
-			RelatedPartyId = 11
+			FromId = 10
+			ToId = 11
+			FromType = [LegalPartyType]::Contract
+			ToType = [LegalPartyType]::Person
 		},
 		@{
-			ContractId = 10
 			RelationshipType = 'Linked'
-			RelatedPartyId = 12
+			FromId = 10
+			ToId = 12
+			FromType = [LegalPartyType]::Contract
+			ToType = [LegalPartyType]::Person
 		}
 	)
 	LegalParties = @(
@@ -99,16 +110,15 @@ function ToSequenceflow($source, $target, $name)
 	return $flow;
 }
 
+function TasksToFlowNodes($tasks)
+{
+	[string[]] $flowNodes = 
+		$tasks | % { $_.Id }
+	return $flowNodes
+}
+
 function ToProcess($customer)
 {
-	$tas = $customer.TradingAccounts | 
-		% { $_.TradingAccountId } |
-		% { $p1=@()} {$p1+= "Task_{0}" -f $_ } {$p1 -join ',' }
-	[string[]] $flowNodes = 
-		'Task_'+$customer.ClientAccountId,
-		'Task_'+$customer.ContractId#,
-		#$tas
-
 	$parties =
 		$customer.LegalParties |
 		% { ToTask $($_.LegalPartyId) $($_.Name) }
@@ -123,21 +133,23 @@ function ToProcess($customer)
 	$clientAccount = ToTask $customer.ClientAccountId 'ClientAccount'
 
 	$seq1 = ToSequenceflow $contract $clientAccount $null
+	$sequences = @($seq1)
 
-	$items = @(
+	$tasks = @(
 		@($contract, $clientAccount),
 		@($parties),
-		@($logons),
-		@($seq1)
+		@($logons)
 	) |
 	% { $_ } # flatten
+
+	$items = $tasks + $sequences
 
 	$laneset = New-Object -TypeName bpm.tLaneSet -Property (@{
 		'id'='LaneSet_'+$customer.ClientCode;
 		'lane'= @(
 			New-Object bpm.tLane -Property (@{
 				'id'='Lane_'+$customer.ClientCode;
-				'flowNodeRef'= $flowNodes;
+				'flowNodeRef'= TasksToFlowNodes $tasks;
 				}));		
 	})
 
