@@ -25,6 +25,28 @@ $customer = [PSCustomObject]@{
 			RelatedPartyId = 12
 		}
 	)
+	LegalParties = @(
+		@{
+			LegalPartyId = 11
+			Name = 'LP_11'
+		},
+		@{
+			LegalPartyId = 12
+			Name = 'LP_12'
+		}
+	)
+	LogonUsers = @(
+		@{
+			LogonUserId = 20
+			Username = 'username1'
+			LinkedToLegalPartyId = @(11,12)
+		},
+		@{
+			LogonUserId = 21
+			Username = 'username2'
+			LinkedToLegalPartyId = @(12)
+		}
+	)
 }
 
 # c# can tell us assembly name
@@ -54,30 +76,58 @@ function ToCollaboration($customer)
 	return $collab
 }
 
+function ToTask([string]$id, [string]$name)
+{
+	#Write-Verbose "Task_$id_$name"
+	New-Object -TypeName bpm.tTask -Property (@{
+		'id'="Task-$name-$id";
+		'name'="$name $id";
+		}) 
+}
+
+function ToSequenceflow()
+{
+}
+
 function ToProcess($customer)
 {
 	$tas = $customer.TradingAccounts | 
 		% { $_.TradingAccountId } |
 		% { $p1=@()} {$p1+= "Task_{0}" -f $_ } {$p1 -join ',' }
-	$flowNodes = @(
+	[string[]] $flowNodes = 
 		'Task_'+$customer.ClientAccountId,
 		'Task_'+$customer.ContractId#,
 		#$tas
-	)
+
+	$parties =
+		$customer.LegalParties |
+		% { ToTask $($_.LegalPartyId) $($_.Name) }
+	$logons =
+		$customer.LogonUsers |
+		% { ToTask $($_.LogonUserId) $($_.Username) }
+
+	$tasks = @(
+		@(ToTask $customer.ContractId 'Contract'),
+		@(ToTask $customer.ClientAccountId 'ClientAccount'),
+		@($parties),
+		@($logons)
+	) |
+	% { $_ } # flatten
 
 	$laneset = New-Object -TypeName bpm.tLaneSet -Property (@{
 		'id'='LaneSet_'+$customer.ClientCode;
 		'lane'= @(
 			New-Object bpm.tLane -Property (@{
 				'id'='Lane_'+$customer.ClientCode;
-				'flowNodeRef'= $flowNodes; })
-			)
+				'flowNodeRef'= $flowNodes;
+				}));		
 	})
 
 	$process = New-Object -TypeName bpm.tProcess -Property (@{
 		'id'='Process_'+$customer.ClientCode;
 		'isExecutable'=$false;
 		'laneSet'=@($laneset);
+		'items'=$tasks
 	})
 	return $process
 }
@@ -118,7 +168,5 @@ $xml = New-Object -TypeName bpm.tDefinitions -Property (@{
 		(ToProcess($customer))
 	)
 })
-
-$xml.Items
 
 Write-Output (Serialize $xml)
