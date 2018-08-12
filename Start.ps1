@@ -85,8 +85,18 @@ function ToTask([string]$id, [string]$name)
 		}) 
 }
 
-function ToSequenceflow()
+function ToSequenceflow($source, $target, $name)
 {
+	$flow = New-Object -TypeName bpm.tSequenceFlow -Property (@{
+		'id'="Sequenceflow-from-$($source.Id)-to-$($target.Id)";
+		'sourceRef'= $source.Id;
+		'targetRef'=$target.Id;
+		})
+	if(![string]::IsNullOrEmpty($name))
+	{
+		$flow.name = $name;
+	}
+	return $flow;
 }
 
 function ToProcess($customer)
@@ -106,11 +116,19 @@ function ToProcess($customer)
 		$customer.LogonUsers |
 		% { ToTask $($_.LogonUserId) $($_.Username) }
 
-	$tasks = @(
-		@(ToTask $customer.ContractId 'Contract'),
-		@(ToTask $customer.ClientAccountId 'ClientAccount'),
+	# clientaccount to contract
+	# contracts to legal parties
+
+	$contract = ToTask $customer.ContractId 'Contract'
+	$clientAccount = ToTask $customer.ClientAccountId 'ClientAccount'
+
+	$seq1 = ToSequenceflow $contract $clientAccount $null
+
+	$items = @(
+		@($contract, $clientAccount),
 		@($parties),
-		@($logons)
+		@($logons),
+		@($seq1)
 	) |
 	% { $_ } # flatten
 
@@ -127,7 +145,7 @@ function ToProcess($customer)
 		'id'='Process_'+$customer.ClientCode;
 		'isExecutable'=$false;
 		'laneSet'=@($laneset);
-		'items'=$tasks
+		'items'=$items
 	})
 	return $process
 }
