@@ -96,6 +96,21 @@ function ToTask([string]$id, [string]$name)
 		}) 
 }
 
+function TaskAddFlows($task, $outflows, $inflows)
+{
+	if($outflows -ne $null)
+	{
+		$task.outgoing = 
+			$outflows | % { $_.Id }
+	}
+	if($inflows -ne $null)
+	{
+		$task.incoming = 
+			$inflows | % { $_.Id }
+	}
+	return $task
+}
+
 function ToSequenceflow($source, $target, $name)
 {
 	$flow = New-Object -TypeName bpm.tSequenceFlow -Property (@{
@@ -135,6 +150,11 @@ function ToProcess($customer)
 	$seq1 = ToSequenceflow $contract $clientAccount $null
 	$sequences = @($seq1)
 
+	# clientaccount outgoing
+	$clientAccount = TaskAddFlows $clientAccount $seq1 $null
+	# contract incoming/outgoing
+	$contract = TaskAddFlows $contract $null $seq1
+
 	$tasks = @(
 		@($contract, $clientAccount),
 		@($parties),
@@ -162,6 +182,34 @@ function ToProcess($customer)
 	return $process
 }
 
+function ToDiagram($collaboration, $process)
+{
+	$shapes = @(
+		New-Object -TypeName bpm.BPMNShape -Property (@{
+			'id'='shape_id';
+			'bpmnElement'=$collaboration.Participant.Id;
+			'Bounds'= New-Object -TypeName bpm.Bounds -Property (@{
+				'x'=370;
+				'y'=270;
+				'width'=830;
+				'height'=260;
+			})
+		})
+	)
+
+	$plane = New-Object -TypeName bpm.BPMNPlane -Property (@{
+		'id'='BPMNPlane';
+		'bpmnElement'=$collaboration.Id;
+		'DiagramElement1'=$shapes;
+	})
+
+	$diagram = New-Object -TypeName bpm.BPMNDiagram -Property (@{
+		'id'='BPMNDiagram';
+		'BPMNPlane'=$plane
+	})
+	return $diagram
+}
+
 function Serialize($definitions)
 {
 	$serializer = New-Object -typeName System.Xml.Serialization.XmlSerializer($definitions.GetType(), "http://bpmn.io/schema/bpmn")
@@ -171,12 +219,12 @@ function Serialize($definitions)
 		'CloseOutput'= $true;
 		'Indent' = $true;
 	})
-    $writer = [System.Xml.XmlWriter]::Create($ms, $writerSettings)
+	$writer = [System.Xml.XmlWriter]::Create($ms, $writerSettings)
                 
 	Write-Verbose "Creating output.xml file..."
-    $ns = new-object -typename System.Xml.Serialization.XmlSerializerNamespaces
-    $ns.Add("","");
-    $ns.Add("bpmn", "http://www.omg.org/spec/BPMN/20100524/MODEL");
+	$ns = new-object -typename System.Xml.Serialization.XmlSerializerNamespaces
+	$ns.Add("","");
+	$ns.Add("bpmn", "http://www.omg.org/spec/BPMN/20100524/MODEL");
 	$ns.Add("bpmni", "http://www.omg.org/spec/BPMN/20100524/DI");
 	$ns.Add("dc", "http://www.omg.org/spec/DD/20100524/DC");
 	$ns.Add("di", "http://www.omg.org/spec/DD/20100524/DI");
@@ -192,11 +240,21 @@ function Serialize($definitions)
 	return $data
 }
 
-$xml = New-Object -TypeName bpm.tDefinitions -Property (@{
-	'Items'= @(		
-		(ToCollaboration($customer)),
-		(ToProcess($customer))
-	)
-})
+function CreateXml($customer)
+{
+	$collaboration = ToCollaboration($customer)
+	$process = ToProcess($customer)
+	$diagram = ToDiagram $collaboration $process
 
-Write-Output (Serialize $xml)
+	$xml = New-Object -TypeName bpm.tDefinitions -Property (@{
+	'id'='Definitions';
+	'Items'= @(		
+		$collaboration,
+		$process);
+	'BPMNDiagram'= @($diagram);
+	})
+	return $xml;
+}
+
+Write-Output (Serialize (CreateXml $customer)) #|
+		#%{ Add-Content -Path (Join-Path (Split-Path -Path $MyInvocation.MyCommand.Definition -Parent) "bpm.xml") -Value $_ -PassThru }
