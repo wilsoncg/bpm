@@ -186,7 +186,7 @@ function ToDiagram($collaboration, $process)
 {
 	$shapes = @(
 		New-Object -TypeName bpm.BPMNShape -Property (@{
-			'id'='shape_id';
+			'id'=$collaboration.Participant.Id+'_di';
 			'bpmnElement'=$collaboration.Participant.Id;
 			'Bounds'= New-Object -TypeName bpm.Bounds -Property (@{
 				'x'=370;
@@ -236,7 +236,7 @@ function Serialize($definitions)
 	$streamReader = New-Object -TypeName System.IO.StreamReader($ms)
 	$data = $streamReader.ReadToEnd()
 
-	$ms.Close
+	$ms.Close | Out-Null
 	return $data
 }
 
@@ -256,5 +256,5 @@ function CreateXml($customer)
 	return $xml;
 }
 
-Write-Output (Serialize (CreateXml $customer)) #|
-		#%{ Add-Content -Path (Join-Path (Split-Path -Path $MyInvocation.MyCommand.Definition -Parent) "bpm.xml") -Value $_ -PassThru }
+Write-Output (Serialize (CreateXml $customer)) |
+		out-file -filePath (Join-Path (Split-Path -Path $MyInvocation.MyCommand.Definition -Parent) "bpm.xml") 
