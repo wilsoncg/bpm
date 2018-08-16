@@ -225,7 +225,7 @@ function Serialize($definitions)
 	$ns = new-object -typename System.Xml.Serialization.XmlSerializerNamespaces
 	$ns.Add("","");
 	$ns.Add("bpmn", "http://www.omg.org/spec/BPMN/20100524/MODEL");
-	$ns.Add("bpmni", "http://www.omg.org/spec/BPMN/20100524/DI");
+	$ns.Add("bpmndi", "http://www.omg.org/spec/BPMN/20100524/DI");
 	$ns.Add("dc", "http://www.omg.org/spec/DD/20100524/DC");
 	$ns.Add("di", "http://www.omg.org/spec/DD/20100524/DI");
     $ns.Add("xsi", "http://www.w3.org/2001/XMLSchema-instance");
