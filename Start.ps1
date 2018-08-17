@@ -221,7 +221,7 @@ function Serialize($definitions)
 		'CloseOutput'= $true;
 		'Indent' = $true;
 	})
-	$writer = [bpm.NoTypeAttributeXmlWriter]::Create($ms, $writerSettings)
+	$writer = [System.Xml.XmlWriter]::Create($ms, $writerSettings)
                 
 	Write-Verbose "Creating output.xml file..."
 	$ns = new-object -typename System.Xml.Serialization.XmlSerializerNamespaces
