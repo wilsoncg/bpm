@@ -212,14 +212,16 @@ function ToDiagram($collaboration, $process)
 
 function Serialize($definitions)
 {
-	$serializer = New-Object -typeName System.Xml.Serialization.XmlSerializer($definitions.GetType(), "http://bpmn.io/schema/bpmn")
+	$serializer = New-Object -typeName System.Xml.Serialization.XmlSerializer($definitions.GetType(), @(
+		(new-object -TypeName bpm.BPMNShape).GetType()
+	))
     $ms = New-Object -typeName System.IO.MemoryStream
 	$writerSettings = New-Object -TypeName System.Xml.XmlWriterSettings -Property (@{
 		'Encoding'= [System.Text.Encoding]::UTF8;
 		'CloseOutput'= $true;
 		'Indent' = $true;
 	})
-	$writer = [System.Xml.XmlWriter]::Create($ms, $writerSettings)
+	$writer = [bpm.NoTypeAttributeXmlWriter]::Create($ms, $writerSettings)
                 
 	Write-Verbose "Creating output.xml file..."
 	$ns = new-object -typename System.Xml.Serialization.XmlSerializerNamespaces

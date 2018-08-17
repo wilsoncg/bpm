@@ -1148,7 +1148,8 @@ namespace bpm {
         private DiagramElement[] diagramElement1Field;
         
         /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("DiagramElement")]
+        // [System.Xml.Serialization.XmlElement("BPMNShape", typeof(BPMNShape))]
+        [System.Xml.Serialization.XmlElementAttribute("BPMNShape", Namespace = "http://www.omg.org/spec/BPMN/20100524/DI")]
         public DiagramElement[] DiagramElement1 {
             get {
                 return this.diagramElement1Field;
