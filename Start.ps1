@@ -127,8 +127,7 @@ function ToSequenceflow($source, $target, $name)
 	{
 		$flow.name = $name;
 	}
-	$flow | 
-	Add-Member -MemberType NoteProperty -Name ItemType -Value [TaskOrSequence]::Sequence -PassThru
+	$flow 
 	return $flow;
 }
 
@@ -167,7 +166,6 @@ function ToProcess($customer)
 		@($parties),
 		@($logons)
 	) |
-	% { $_ | Add-Member -MemberType NoteProperty -Name ItemType -Value [TaskOrSequence]::Task }
 	% { $_ } # flatten
 
 	$items = $tasks + $sequences
@@ -220,13 +218,14 @@ function ToDiagram($collaboration, $process)
 
 	$moreShapes = 
 		$process.Items |
-		? { $_.ItemType -eq [TaskOrSequence]::Task } |
+		? { $_.GetType() -eq (new-object -typename bpm.tTask).GetType() } |
 		% { ToShape $_.id 10 20 50 50 }
 
 	$shapes = @(
-		$customerShape +
-		$moreShapes 
-	)
+		@($customerShape) +
+		@($moreShapes)
+	) |
+	%{ $_ } #flatten
 
 	$plane = New-Object -TypeName bpm.BPMNPlane -Property (@{
 		'id'='BPMNPlane';
