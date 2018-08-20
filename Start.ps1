@@ -60,6 +60,12 @@ $customer = [PSCustomObject]@{
 	)
 }
 
+Enum TaskOrSequence
+{
+	Task = 1
+	Sequence = 2
+}
+
 # c# can tell us assembly name
 # Console.WriteLine(typeof(System.Xml.XmlDocument).Assembly.FullName);
 
@@ -89,7 +95,6 @@ function ToCollaboration($customer)
 
 function ToTask([string]$id, [string]$name)
 {
-	#Write-Verbose "Task_$id_$name"
 	New-Object -TypeName bpm.tTask -Property (@{
 		'id'="Task-$name-$id";
 		'name'="$name $id";
@@ -122,6 +127,8 @@ function ToSequenceflow($source, $target, $name)
 	{
 		$flow.name = $name;
 	}
+	$flow | 
+	Add-Member -MemberType NoteProperty -Name ItemType -Value [TaskOrSequence]::Sequence -PassThru
 	return $flow;
 }
 
@@ -160,6 +167,7 @@ function ToProcess($customer)
 		@($parties),
 		@($logons)
 	) |
+	% { $_ | Add-Member -MemberType NoteProperty -Name ItemType -Value [TaskOrSequence]::Task }
 	% { $_ } # flatten
 
 	$items = $tasks + $sequences
@@ -182,9 +190,23 @@ function ToProcess($customer)
 	return $process
 }
 
+function ToShape($id, $x, $y, $width, $height)
+{
+	return New-Object -TypeName bpm.BPMNShape -Property (@{
+		'id'=$id+'_di';
+		'bpmnElement'=$id;
+		'Bounds'= New-Object -TypeName bpm.Bounds -Property (@{
+			'x'=$x;
+			'y'=$y;
+			'width'=$width;
+			'height'=$height;
+		})
+	})
+}
+
 function ToDiagram($collaboration, $process)
 {
-	$shapes = @(
+	$customerShape = 
 		New-Object -TypeName bpm.BPMNShape -Property (@{
 			'id'=$collaboration.Participant.Id+'_di';
 			'bpmnElement'=$collaboration.Participant.Id;
@@ -195,6 +217,15 @@ function ToDiagram($collaboration, $process)
 				'height'=260;
 			})
 		})
+
+	$moreShapes = 
+		$process.Items |
+		? { $_.ItemType -eq [TaskOrSequence]::Task } |
+		% { ToShape $_.id 10 20 50 50 }
+
+	$shapes = @(
+		$customerShape +
+		$moreShapes 
 	)
 
 	$plane = New-Object -TypeName bpm.BPMNPlane -Property (@{
