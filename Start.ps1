@@ -60,10 +60,13 @@ $customer = [PSCustomObject]@{
 	)
 }
 
-Enum TaskOrSequence
+Enum EntityType
 {
-	Task = 1
-	Sequence = 2
+	LegalParty = 1
+	Person = 2
+	Contract = 3
+	Username = 4
+	ClientAccount = 5
 }
 
 # c# can tell us assembly name
@@ -93,12 +96,14 @@ function ToCollaboration($customer)
 	return $collab
 }
 
-function ToTask([string]$id, [string]$name)
+function ToTask([string]$id, [string]$name, [EntityType]$type)
 {
-	New-Object -TypeName bpm.tTask -Property (@{
+	$task = New-Object -TypeName bpm.tTask -Property (@{
 		'id'="Task-$name-$id";
 		'name'="$name $id";
-		}) 
+		'tasktype'="{0}" -f $type.value__;
+		})
+	return $task
 }
 
 function TaskAddFlows($task, $outflows, $inflows)
@@ -127,7 +132,6 @@ function ToSequenceflow($source, $target, $name)
 	{
 		$flow.name = $name;
 	}
-	$flow 
 	return $flow;
 }
 
@@ -142,16 +146,16 @@ function ToProcess($customer)
 {
 	$parties =
 		$customer.LegalParties |
-		% { ToTask $($_.LegalPartyId) $($_.Name) }
+		% { ToTask $($_.LegalPartyId) $($_.Name) ([EntityType]::LegalParty) }
 	$logons =
 		$customer.LogonUsers |
-		% { ToTask $($_.LogonUserId) $($_.Username) }
+		% { ToTask $($_.LogonUserId) $($_.Username) ([EntityType]::Username) }
 
 	# clientaccount to contract
 	# contracts to legal parties
 
-	$contract = ToTask $customer.ContractId 'Contract'
-	$clientAccount = ToTask $customer.ClientAccountId 'ClientAccount'
+	$contract = ToTask $customer.ContractId ([EntityType]::Contract)
+	$clientAccount = ToTask $customer.ClientAccountId ([EntityType]::ClientAccount)
 
 	$seq1 = ToSequenceflow $contract $clientAccount $null
 	$sequences = @($seq1)
@@ -219,7 +223,7 @@ function ToDiagram($collaboration, $process)
 	$moreShapes = 
 		$process.Items |
 		? { $_.GetType() -eq (new-object -typename bpm.tTask).GetType() } |
-		% { ToShape $_.id 10 20 50 50 }
+		% { ToShape $_.id 10 20 100 80 }
 
 	$shapes = @(
 		@($customerShape) +
