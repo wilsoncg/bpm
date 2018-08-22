@@ -62,11 +62,11 @@ $customer = [PSCustomObject]@{
 
 Enum EntityType
 {
-	LegalParty = 1
-	Person = 2
-	Contract = 3
-	Username = 4
-	ClientAccount = 5
+	ClientAccount = 1
+	Contract = 2
+	LegalParty = 3
+	Person = 4
+	Username = 5
 }
 
 # c# can tell us assembly name
@@ -154,8 +154,8 @@ function ToProcess($customer)
 	# clientaccount to contract
 	# contracts to legal parties
 
-	$contract = ToTask $customer.ContractId ([EntityType]::Contract)
-	$clientAccount = ToTask $customer.ClientAccountId ([EntityType]::ClientAccount)
+	$contract = ToTask $customer.ContractId $customer.ContractName ([EntityType]::Contract)
+	$clientAccount = ToTask $customer.ClientAccountId $customer.ClientCode ([EntityType]::ClientAccount)
 
 	$seq1 = ToSequenceflow $contract $clientAccount $null
 	$sequences = @($seq1)
@@ -206,6 +206,18 @@ function ToShape($id, $x, $y, $width, $height)
 	})
 }
 
+function GetTaskCoordinates($task, $origin)
+{
+	$width = 100
+	$height = 80
+	$margin = 20
+	$type = [int]$task.tasktype
+	$x = $origin.x + ($type * $width) + $margin
+	$y = $origin.y + $margin
+
+	return (@{'x'= $x; 'y'= $y; })
+}
+
 function ToDiagram($collaboration, $process)
 {
 	$customerShape = 
@@ -223,7 +235,8 @@ function ToDiagram($collaboration, $process)
 	$moreShapes = 
 		$process.Items |
 		? { $_.GetType() -eq (new-object -typename bpm.tTask).GetType() } |
-		% { ToShape $_.id 10 20 100 80 }
+		% { $coord = GetTaskCoordinates $_ (@{'x'= 370; 'y'= 270; });
+			ToShape $_.id $coord.x $coord.y 100 80 }
 
 	$shapes = @(
 		@($customerShape) +
