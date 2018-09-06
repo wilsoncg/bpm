@@ -211,10 +211,16 @@ function GetTaskCoordinates($task, $origin, $taskTypeCount, $processed)
 	$width = 100
 	$height = 80
 	$margin = 20
-	$type = [int]$task.tasktype #column
+	$col = [int]$task.tasktype #column
 	$count = $taskTypeCount #num in colum
-	$x = $origin.x + ($type * $width) + $margin
-	$y = $origin.y + $margin
+	#(1,1) (5,1) (9,1)
+	# -	- -		     -
+	#	- -		   - -
+	#	  -		 - - -
+	$shiftx = $(if ($col -eq 1) { 0 } else { $col * $width })
+	$shifty = $(if ($col -eq 1) { 0 } else { $processed * $height })
+	$x = $margin + $origin.x + $shiftx + $margin
+	$y = $margin + $origin.y + $shifty + $margin
 
 	return (@{'x'= $x; 'y'= $y; })
 }
@@ -223,8 +229,9 @@ function TasksGrouped($processTasks)
 {
 	$grouped = 
 	$processTasks |
-	? { $_.GetType() -eq (new-object -typename bpm.tTask).GetType() } |
-		Group-Object -Property tasktype |
+	Sort-Object -Property tasktype |
+	? { $_.GetType() -eq (new-object -typename bpm.tTask).GetType() } |	
+		Group-Object -Property tasktype |		
 		% -Begin {
 			$info = @()
 		} -Process { 
@@ -240,7 +247,7 @@ function TasksGrouped($processTasks)
 
 function ToDiagram($collaboration, $process)
 {
-	$customerShape = ToShape($collaboration.Participant.Id, 370, 270, 830, 260)	
+	$customerShape = ToShape $collaboration.Participant.Id 370 270 830 260
 	$tasksWithInfo = TasksGrouped $process.Items		
 	
 	# name=1, count=2, group=task[], tasks=groupInfo[]
@@ -258,7 +265,7 @@ function ToDiagram($collaboration, $process)
 			} -Process {
 				$coord = GetTaskCoordinates $_ (@{'x'= 370; 'y'= 270; }) $tasksCount $processed;
 				$processed = $processed + 1;
-				$shape = ToShape $_.id $coord.x $coord.y 100 80;
+				$shape = ToShape $_.id $coord['x'] $coord['y'] 100 80;
 				$shapes += $shape
 			} -End {}			
 		} -End { 
