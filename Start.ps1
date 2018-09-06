@@ -219,23 +219,11 @@ function GetTaskCoordinates($task, $origin, $taskTypeCount, $processed)
 	return (@{'x'= $x; 'y'= $y; })
 }
 
-function ToDiagram($collaboration, $process)
+function TasksGrouped($processTasks)
 {
-	$customerShape = 
-		New-Object -TypeName bpm.BPMNShape -Property (@{
-			'id'=$collaboration.Participant.Id+'_di';
-			'bpmnElement'=$collaboration.Participant.Id;
-			'Bounds'= New-Object -TypeName bpm.Bounds -Property (@{
-				'x'=370;
-				'y'=270;
-				'width'=830;
-				'height'=260;
-			})
-		})
-	
-	$tasksWithInfo = 
-		$process.Items |
-		? { $_.GetType() -eq (new-object -typename bpm.tTask).GetType() } |
+	return
+	$processTasks |
+	? { $_.GetType() -eq (new-object -typename bpm.tTask).GetType() } |
 		Group-Object -Property tasktype |
 		% -Begin {
 			$info = @()
@@ -246,27 +234,25 @@ function ToDiagram($collaboration, $process)
 				'tasksCount' = $_.Count; }
 			$info += $grouped
 		} -End {
-			$info
-		}
+			$info }
+}
+
+function ToDiagram($collaboration, $process)
+{
+	$customerShape = ToShape($collaboration.Participant.Id, 370, 270, 830, 260)	
+	$tasksWithInfo = TasksGrouped $process.Items		
 	
 	# name=1, count=2, group=task[], tasks=groupInfo[]
-	$taskShapes = #
+	$taskShapes = 
 		$tasksWithInfo |
-		% -Begin {
-			$type = $_.Name; $numType = $_.Count;
-		} -Process { 
-			($_.Group) |
-			ForEach-Object -Begin { 
-				$processed = 1; $shapes = @(); 
-			} -Process {
-				$coord = GetTaskCoordinates $_ (@{'x'= 370; 'y'= 270; }) $numType $processed;
-				$processed = $processed + 1;
-				$shapes += ToShape $_.id $coord.x $coord.y 100 80;
-			} -End { 
-				$shapes }
-		} -End {
-			$shapes
-		}
+		ForEach-Object -Begin { 
+			$processed = 1; $shapes = @(); 
+		} -Process {
+			$coord = GetTaskCoordinates $_['tasks'] (@{'x'= 370; 'y'= 270; }) $_['tasksCount'] $processed;
+			$processed = $processed + 1;
+			$shapes += ToShape $_.id $coord.x $coord.y 100 80;
+		} -End { 
+			$shapes }
 
 	$shapes = @(
 		@($customerShape) +
