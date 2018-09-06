@@ -206,12 +206,13 @@ function ToShape($id, $x, $y, $width, $height)
 	})
 }
 
-function GetTaskCoordinates($task, $origin)
+function GetTaskCoordinates($task, $origin, $taskTypeCount, $processed)
 {
 	$width = 100
 	$height = 80
 	$margin = 20
 	$type = [int]$task.tasktype
+	$count = $taskTypeCount
 	$x = $origin.x + ($type * $width) + $margin
 	$y = $origin.y + $margin
 
@@ -231,16 +232,45 @@ function ToDiagram($collaboration, $process)
 				'height'=260;
 			})
 		})
-
-	$moreShapes = 
+	
+	$tasksWithInfo = 
 		$process.Items |
 		? { $_.GetType() -eq (new-object -typename bpm.tTask).GetType() } |
-		% { $coord = GetTaskCoordinates $_ (@{'x'= 370; 'y'= 270; });
-			ToShape $_.id $coord.x $coord.y 100 80 }
+		Group-Object -Property tasktype |
+		% -Begin {
+			$info = @()
+		} -Process { 
+			$grouped = @{ 
+				'tasks'= $_.Group; 
+				'tasksTypeId' = $_.Name;
+				'tasksCount' = $_.Count; }
+			$info += $grouped
+		} -End {
+			$info
+		}
+	
+	# name=1, count=2, group=task[], tasks=groupInfo[]
+	$taskShapes = #
+		$tasksWithInfo |
+		% -Begin {
+			$type = $_.Name; $numType = $_.Count;
+		} -Process { 
+			($_.Group) |
+			ForEach-Object -Begin { 
+				$processed = 1; $shapes = @(); 
+			} -Process {
+				$coord = GetTaskCoordinates $_ (@{'x'= 370; 'y'= 270; }) $numType $processed;
+				$processed = $processed + 1;
+				$shapes += ToShape $_.id $coord.x $coord.y 100 80;
+			} -End { 
+				$shapes }
+		} -End {
+			$shapes
+		}
 
 	$shapes = @(
 		@($customerShape) +
-		@($moreShapes)
+		@($taskShapes)
 	) |
 	%{ $_ } #flatten
 
